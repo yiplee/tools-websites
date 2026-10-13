@@ -1,0 +1,5 @@
+{
+  "name": "tools-websites",
+  "private": true,
+  "workspaces": ["packages/*", "sites/*"]
+}
