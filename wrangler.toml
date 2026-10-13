@@ -1,0 +1,9 @@
+name = "tools-websites"
+main = "src/index.ts"
+workers_dev = true
+compatibility_date = "2026-10-01"
+# Inline browser functions must not reference bundler-generated __name helpers.
+keep_names = false
+
+[vars]
+BASE_URL = "https://tools-websites.yiplee.workers.dev"
