@@ -24,6 +24,7 @@ describe('HTML routes and SEO', () => {
     const canonical = baseUrl + path;
     expect(response.status).toBe(200);
     expect(response.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
     expect(html).toContain(`<title>${title.replace(/&/g, '&amp;')}</title>`);
     expect(html).toContain(`<meta name="description" content="${description}">`);
     expect(html).toContain(`<link rel="canonical" href="${canonical}">`);
@@ -149,6 +150,7 @@ describe('HTTP routes, caching, and security', () => {
     const html = await response.text();
     expect(response.status).toBe(404);
     expect(response.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
     expect(html).toContain('<h1>Page not found</h1>');
     expect(html).toContain('<header class="site-header">');
     expect(html).toContain('<footer class="site-footer">');
@@ -171,6 +173,8 @@ describe('HTTP routes, caching, and security', () => {
       const response = request('/uuid/?version=7', method);
       expect(response.status).toBe(301);
       expect(response.headers.get('Location')).toBe('/uuid?version=7');
+      expect(response.headers.get('Cache-Control')).toBe('public, max-age=3600');
+      expect(response.headers.get('Content-Security-Policy')).not.toContain('nonce-');
     }
   });
 
@@ -184,9 +188,15 @@ describe('HTTP routes, caching, and security', () => {
     expect(await head.text()).toBe('');
   });
 
-  it.each(['/', '/uuid', '/missing', '/robots.txt', '/sitemap.xml'])('sets cache and security headers on %s', async (path) => {
+  it.each([
+    ['/', 'no-store'],
+    ['/uuid', 'no-store'],
+    ['/missing', 'no-store'],
+    ['/robots.txt', 'public, max-age=86400'],
+    ['/sitemap.xml', 'public, max-age=86400'],
+  ])('sets cache and security headers on %s', async (path, cacheControl) => {
     const response = request(path);
-    expect(response.headers.get('Cache-Control')).toBe(`public, max-age=${['/robots.txt', '/sitemap.xml'].includes(path) ? 86400 : 3600}`);
+    expect(response.headers.get('Cache-Control')).toBe(cacheControl);
     expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
     expect(response.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
     expect(response.headers.get('X-Frame-Options')).toBe('DENY');
@@ -201,6 +211,8 @@ describe('HTTP routes, caching, and security', () => {
       const tags = [...html.matchAll(/<(script|style)\b([^>]*)>/g)];
       expect(tags.length).toBeGreaterThan(0);
       for (const tag of tags) expect(tag[2]).toContain(`nonce="${nonce}"`);
+    } else {
+      expect(csp).not.toContain('nonce-');
     }
   });
 

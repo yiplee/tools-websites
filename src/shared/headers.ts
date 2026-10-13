@@ -1,5 +1,6 @@
 export const cachePolicies = {
-  html: 'public, max-age=3600',
+  html: 'no-store',
+  redirect: 'public, max-age=3600',
   discovery: 'public, max-age=86400',
   noStore: 'no-store',
 } as const;

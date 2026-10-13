@@ -48,8 +48,11 @@ Internal anchors use relative paths. Canonical, Open Graph, Twitter, JSON-LD,
 and discovery URLs use `BASE_URL`, independent of the incoming request host.
 Built tool paths with a trailing slash redirect permanently to the canonical
 path, preserving query parameters. GET and HEAD are supported; other methods
-return 405. HTML caches publicly for 3,600 seconds, and robots/sitemap for 86,400
-seconds. Responses include CSP, nosniff, Referrer-Policy, and frame protection.
+return 405. Successful HTML responses use `Cache-Control: no-store` to prevent
+cached CSP nonce reuse; 404 responses also use `no-store`. Nonce-free 301
+redirects retain `public, max-age=3600`, while robots.txt and sitemap.xml retain
+`public, max-age=86400`. HEAD uses the same cache policy as GET. Responses
+include CSP, nosniff, Referrer-Policy, and frame protection.
 
 The root TypeScript config uses DOM/Web API types for both browser code and the
 Worker's standard Request/Response entry point. It avoids globally loading

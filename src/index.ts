@@ -20,7 +20,7 @@ export default {
     const tools = builtTools();
     const withoutSlash = path.endsWith('/') ? path.slice(0, -1) : path;
     if (path !== withoutSlash && tools.some((tool) => tool.path === withoutSlash)) {
-      const headers = responseHeaders('text/plain; charset=utf-8', cachePolicies.html);
+      const headers = responseHeaders('text/plain; charset=utf-8', cachePolicies.redirect);
       headers.set('Location', withoutSlash + url.search);
       return new Response(null, { status: 301, headers });
     }
@@ -45,7 +45,7 @@ export default {
       });
     return new Response(body, {
       status: found ? 200 : 404,
-      headers: responseHeaders('text/html; charset=utf-8', cachePolicies.html, nonce),
+      headers: responseHeaders('text/html; charset=utf-8', found ? cachePolicies.html : cachePolicies.noStore, nonce),
     });
   },
 };
