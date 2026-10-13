@@ -24,7 +24,11 @@ src/
       page.ts           Server-rendered tool, usage, and FAQ
       client.ts         Browser interactions and inline script
       uuid.ts           Self-contained UUID generation, formatting, and parsing
-test/                   Vitest UUID and HTTP/SEO/registry tests
+    encode/
+      page.ts           Server-rendered Base64/hex/hash workspace, usage and FAQ
+      client.ts         Local text/file input, state, copy and byte-safe download
+      encode.ts         Self-contained UTF-8, Base64, hex, MD5 and Web Crypto SHA
+test/                   Vitest computation, client-state and HTTP/SEO tests
 ```
 
 `/` lists every built tool. `/uuid` generates v1, v4, and v7 UUIDs, in batches
@@ -36,12 +40,43 @@ those functions. No API endpoint or input storage is used. JavaScript is require
 for these interactions; page descriptions, FAQs, and navigation remain readable
 without it.
 
+`/encode` encodes and decodes Base64 (standard and URL-safe) and hex, and computes
+MD5, SHA-1, SHA-256 and SHA-512 hashes. Choose an operation and either UTF-8 text
+or a local file, then run the conversion. Encoding and hashing use the exact
+input bytes: spaces, line endings and a leading BOM are preserved. Files are
+read locally with `File.arrayBuffer()`, including binary and empty files. Text
+and file inputs are limited to 10 MiB; the text limit counts UTF-8 bytes.
+
+Standard Base64 output includes required `=` padding; URL-safe output uses `-`
+and `_` without padding. Decoding accepts correct padded or unpadded input in
+the selected alphabet, rejecting mixed alphabets, malformed padding, impossible
+lengths and nonzero unused bits. Hex accepts either case and complete byte pairs,
+without `0x`. Both decoders ignore ASCII spaces, tabs, CR and LF. Files used as
+encoded input must contain valid UTF-8 Base64 or hex text.
+
+Copy or download the result. Decoded downloads preserve every byte; invalid
+UTF-8 results display a binary notice and remain downloadable with copying
+disabled. Empty results are also downloadable. Editing the input, operation,
+alphabet or source clears the result and invalidates pending work. Errors identify
+invalid input, file size/read failures, unsupported Web Crypto and clipboard denial.
+
+SHA uses `crypto.subtle.digest` in the browser; MD5 uses a self-contained RFC 1321
+implementation covered by the full RFC vectors and independent binary fixtures
+at block/padding boundaries. MD5 and SHA-1 are provided for compatibility checks,
+and plain digests are not password hashing schemes. The Encode factory and
+initializer are serialized into the same nonce-protected inline script pattern
+as UUID. The Worker only serves HTML and discovery files: there are no `/api`
+routes, uploads, computation requests, input storage or external dependencies.
+The CSP retains `connect-src 'none'`.
+
 `keep_names = false` in Wrangler prevents injected name-preservation helpers from
 becoming external dependencies of the serialized browser functions.
 
 The registry drives routes, home listings, navigation, Other tools, and the
-sitemap. Encode (`/encode`, with future `/base64`, `/hex`, and `/hash`), JWT
-(`/jwt`), and Key Generator (`/keygen`) are planned. Planned tools have no public
+sitemap. UUID (`/uuid`) and Encode & Hash (`/encode`) are built. Base64, hex and
+hash operations share `/encode`; `/base64`, `/hex`, `/hash`, and nested Encode
+paths are not separate routes. JWT (`/jwt`) and Key Generator (`/keygen`) are
+planned. Planned tools have no public
 links or sitemap entries and return the shared 404 page.
 
 Internal anchors use relative paths. Canonical, Open Graph, Twitter, JSON-LD,
@@ -71,18 +106,40 @@ npm test           # vitest run
 npm run typecheck  # tsc --noEmit
 ```
 
+Issue #3's explicit checks can also be run directly:
+
+```sh
+npx vitest run
+npx tsc --noEmit
+```
+
+Tests cover RFC 4648 Base64 and hex vectors, RFC 1321 MD5 and FIPS 180 SHA
+vectors, Chinese/emoji/BOM/line-ending handling, malformed Base64/hex and UTF-8,
+binary decoding, file size/read errors, clipboard denial, byte-exact downloads,
+stale async results, and execution of serialized browser functions. Route tests
+verify `/encode` metadata, visible FAQ matching JSON-LD (WebApplication,
+FAQPage and BreadcrumbList), homepage ItemList, mutual tool links, sitemap,
+canonical redirects, GET/HEAD/405/404 behavior and CSP nonce/cache policies.
+
 The site uses system fonts and inline styles/scripts, with no external assets.
 Inputs use 16px text, controls provide at least 44px touch targets, and UUID text
 wraps inside its bounded, scrollable result list. Color follows the system's
 light/dark preference.
 
 Browser automation is unavailable in this sandbox, so rendered visual checks
-must be performed manually: check 360px for horizontal overflow, then
+and issue #3's screenshots must be performed manually: capture `/encode` at
+1280px desktop and 375px mobile, check 360px for horizontal overflow, then
 390×844, 768×1024, 1440×900, 1920×1080, and 2560×1080 in light and dark mode.
 Check navigation wrapping, the controls/results grid, long UUIDs with braces,
 keyboard focus, validation errors, all copy actions (including denied clipboard
 access), and the TXT download. Automated tests exercise UUID rules, registry
 integration, metadata, and HTTP behavior; they do not replace these visual checks.
+For Encode, check stacked mobile input/results, desktop paired input/output,
+navigation wrapping, long Base64/hex results, operation/source/alphabet changes,
+keyboard focus, error messages, empty inputs, binary results and downloads, and
+clipboard denial. No rendered screenshots or visual verification are claimed by
+the automated tests. If a PR is opened later, include both screenshots and
+`Fixes #3` in its body.
 
 ## Deployment
 

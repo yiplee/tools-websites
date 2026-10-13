@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import worker from '../src/index';
 import { homeDescription, homeTitle } from '../src/home';
 import { title as uuidTitle, description as uuidDescription, faq } from '../src/tools/uuid/page';
+import { title as encodeTitle, description as encodeDescription, faq as encodeFaq } from '../src/tools/encode/page';
 import { builtTools, toolRegistry, type Tool } from '../src/shared/registry';
 import { pageLayout } from '../src/shared/layout';
 import { sitemapXml } from '../src/shared/discovery';
-import { serializeJsonLd, siteUrl } from '../src/shared/seo';
+import { escapeHtml, serializeJsonLd, siteUrl } from '../src/shared/seo';
 
 const baseUrl = 'https://tools-websites.yiplee.workers.dev';
 const env = { BASE_URL: baseUrl };
@@ -18,6 +19,7 @@ describe('HTML routes and SEO', () => {
   it.each([
     ['/', homeTitle, homeDescription, ['WebSite', 'ItemList']],
     ['/uuid', uuidTitle, uuidDescription, ['WebApplication', 'FAQPage', 'BreadcrumbList']],
+    ['/encode', encodeTitle, encodeDescription, ['WebApplication', 'FAQPage', 'BreadcrumbList']],
   ] as const)('renders %s with its own metadata and parseable structured data', async (path, title, description, types) => {
     const response = request(path);
     const html = await response.text();
@@ -28,6 +30,7 @@ describe('HTML routes and SEO', () => {
     expect(html).toContain(`<title>${title.replace(/&/g, '&amp;')}</title>`);
     expect(html).toContain(`<meta name="description" content="${description}">`);
     expect(html).toContain(`<link rel="canonical" href="${canonical}">`);
+    expect(html).not.toContain('<meta name="robots" content="noindex">');
     expect(html).toContain(`<meta property="og:url" content="${canonical}">`);
     expect(html).toContain(`<meta name="twitter:url" content="${canonical}">`);
     expect(html).toContain('name="viewport" content="width=device-width, initial-scale=1"');
@@ -35,8 +38,9 @@ describe('HTML routes and SEO', () => {
     expect(html).toContain(`<a href="${path}" aria-current="page">`);
     expect(anchors(html)).toContain('/');
     expect(anchors(html)).toContain('/uuid');
+    expect(anchors(html)).toContain('/encode');
     expect(anchors(html).every((href) => href.startsWith('/') || href === '#main')).toBe(true);
-    for (const plannedPath of ['/encode', '/jwt', '/keygen', '/base64', '/hex', '/hash']) {
+    for (const plannedPath of ['/jwt', '/keygen', '/base64', '/hex', '/hash']) {
       expect(anchors(html)).not.toContain(plannedPath);
     }
     for (const tool of toolRegistry.filter((entry) => entry.status === 'planned')) {
@@ -48,7 +52,7 @@ describe('HTML routes and SEO', () => {
     const html = await request('/').text();
     const list = jsonLd(html).find((value) => value['@type'] === 'ItemList')!;
     expect(list.itemListElement.map((item: any) => item.url)).toEqual(builtTools().map((tool) => baseUrl + tool.path));
-    for (const tool of builtTools()) expect(html).toContain(`<h3><a href="${tool.path}">${tool.name}</a></h3>`);
+    for (const tool of builtTools()) expect(html).toContain(`<h3><a href="${tool.path}">${escapeHtml(tool.name)}</a></h3>`);
     expect(jsonLd(html).find((value) => value['@type'] === 'WebSite')!.url).toBe(baseUrl + '/');
   });
 
@@ -70,7 +74,7 @@ describe('HTML routes and SEO', () => {
     const breadcrumbs = data.find((value) => value['@type'] === 'BreadcrumbList')!.itemListElement;
     expect(breadcrumbs.map((item: any) => item.item)).toEqual([baseUrl + '/', baseUrl + '/uuid']);
     expect(html).toContain('aria-label="Breadcrumb"');
-    expect(html).not.toContain('id="other-tools-heading"');
+    expect(html.match(/<section class="other-tools"[^>]*>(.*?)<\/section>/s)![1]).toContain('href="/encode"');
     for (const id of ['generator', 'count', 'version', 'uppercase', 'no-hyphens', 'braces', 'copy-all', 'download', 'validator', 'validate-input']) {
       expect(html).toContain(`id="${id}"`);
     }
@@ -89,6 +93,39 @@ describe('HTML routes and SEO', () => {
     const response = worker.fetch(new Request('https://preview.example/uuid'), { BASE_URL: 'https://custom.example/' });
     expect(await response.text()).toContain('<link rel="canonical" href="https://custom.example/uuid">');
   });
+
+  it('renders Encode usage, matching visible FAQ, controls, and a browser-only script', async () => {
+    const html = await request('/encode').text();
+    const data = jsonLd(html);
+    expect(data.find((value) => value['@type'] === 'WebApplication')).toMatchObject({ url: baseUrl + '/encode', description: encodeDescription });
+    const questions = data.find((value) => value['@type'] === 'FAQPage')!.mainEntity;
+    expect(questions).toHaveLength(encodeFaq.length);
+    for (const [index, item] of encodeFaq.entries()) {
+      expect(questions[index]).toMatchObject({ name: item.question, acceptedAnswer: { text: item.answer } });
+      expect(html).toContain(escapeHtml(item.question));
+      expect(html).toContain(escapeHtml(item.answer));
+    }
+    expect(data.find((value) => value['@type'] === 'BreadcrumbList')!.itemListElement.map((item: any) => item.item)).toEqual([baseUrl + '/', baseUrl + '/encode']);
+    expect(html).toContain('From text to bytes to a digest');
+    expect(html).toContain('aria-label="Breadcrumb"');
+    expect(html.match(/<section class="other-tools"[^>]*>(.*?)<\/section>/s)![1]).toContain('href="/uuid"');
+    for (const id of ['encode-form', 'operation', 'input-source', 'base64-alphabet', 'encode-input', 'encode-file', 'encode-output', 'copy-result', 'download-result']) {
+      expect(html).toContain(`id="${id}"`);
+    }
+    for (const operation of ['base64-encode', 'base64-decode', 'hex-encode', 'hex-decode', 'MD5', 'SHA-1', 'SHA-256', 'SHA-512']) {
+      expect(html).toContain(`value="${operation}"`);
+    }
+    expect(html).toContain('id="convert" class="primary" type="submit" disabled');
+    expect(html).toContain('id="result-summary" class="hint" aria-live="polite">No result yet');
+    const script = [...html.matchAll(/<script nonce="[^"]+">([\s\S]*?)<\/script>/g)][0][1];
+    expect(() => new Function(script)).not.toThrow();
+    expect(script).not.toMatch(/\bfetch\s*\(|XMLHttpRequest|sendBeacon|localStorage|sessionStorage/);
+    expect(script).toContain('subtle.digest');
+    expect(script).toContain('arrayBuffer');
+    expect(script).toContain('clipboard.writeText');
+    const custom = worker.fetch(new Request('https://preview.example/encode'), { BASE_URL: 'https://custom.example/' });
+    expect(await custom.text()).toContain('<link rel="canonical" href="https://custom.example/encode">');
+  });
 });
 
 describe('registry-driven navigation and discovery', () => {
@@ -97,15 +134,15 @@ describe('registry-driven navigation and discovery', () => {
       ...toolRegistry,
       { slug: 'second', path: '/second', name: 'Second Tool', description: 'Another available tool.', status: 'built', render: () => '' },
     ];
-    expect(builtTools(registry).map((tool) => tool.slug)).toEqual(['uuid', 'second']);
+    expect(builtTools(registry).map((tool) => tool.slug)).toEqual(['uuid', 'encode', 'second']);
     const html = pageLayout({ title: 'Test', description: 'Test', canonical: baseUrl + '/uuid', nonce: 'testnonce', currentPath: '/uuid', content: '', registry });
     const nav = html.match(/<nav class="tool-nav"[^>]*>(.*?)<\/nav>/s)![1];
-    expect(anchors(nav)).toEqual(['/', '/uuid', '/second']);
+    expect(anchors(nav)).toEqual(['/', '/uuid', '/encode', '/second']);
     expect(nav).toContain('<a href="/uuid" aria-current="page">');
     const other = html.match(/<section class="other-tools"[^>]*>(.*?)<\/section>/s)![1];
-    expect(anchors(other)).toEqual(['/second']);
+    expect(anchors(other)).toEqual(['/encode', '/second']);
     expect(other).toContain('Another available tool.');
-    expect(locations(sitemapXml(baseUrl, registry))).toEqual([baseUrl + '/', baseUrl + '/uuid', baseUrl + '/second']);
+    expect(locations(sitemapXml(baseUrl, registry))).toEqual([baseUrl + '/', baseUrl + '/uuid', baseUrl + '/encode', baseUrl + '/second']);
   });
 
   it('activates a built tool everywhere with one registry entry', async () => {
@@ -116,11 +153,11 @@ describe('registry-driven navigation and discovery', () => {
       expect(request('/example').status).toBe(200);
       const home = await request('/').text();
       expect(home).toContain('<h3><a href="/example">Example Tool</a></h3>');
-      expect(jsonLd(home).find((value) => value['@type'] === 'ItemList')!.itemListElement).toHaveLength(2);
+      expect(jsonLd(home).find((value) => value['@type'] === 'ItemList')!.itemListElement).toHaveLength(3);
       const uuid = await request('/uuid').text();
       expect(uuid).toContain('id="other-tools-heading"');
       expect(uuid.match(/<section class="other-tools"[^>]*>(.*?)<\/section>/s)![1]).toContain('href="/example"');
-      expect(locations(await request('/sitemap.xml').text())).toEqual([baseUrl + '/', baseUrl + '/uuid', baseUrl + '/example']);
+      expect(locations(await request('/sitemap.xml').text())).toEqual([baseUrl + '/', baseUrl + '/uuid', baseUrl + '/encode', baseUrl + '/example']);
       expect(request('/example/').headers.get('Location')).toBe('/example');
     } finally {
       registry.splice(registry.indexOf(extra), 1);
@@ -145,7 +182,7 @@ describe('HTTP routes, caching, and security', () => {
     expect(await response.text()).toBe(`User-agent: *\nAllow: /\nSitemap: ${baseUrl}/sitemap.xml\n`);
   });
 
-  it.each(['/jwt', '/jwt/', '/encode', '/keygen', '/base64', '/hex', '/hash', '/encode/base64', '/encode/hex', '/encode/hash', '/api', '/api/uuid', '/uuid/api', '/uuid/robots.txt', '/missing'])('returns a layout 404 for %s', async (path) => {
+  it.each(['/jwt', '/jwt/', '/keygen', '/base64', '/hex', '/hash', '/encode/base64', '/encode/hex', '/encode/hash', '/api', '/api/uuid', '/api/encode', '/encode/api', '/uuid/api', '/uuid/robots.txt', '/missing'])('returns a layout 404 for %s', async (path) => {
     const response = request(path);
     const html = await response.text();
     expect(response.status).toBe(404);
@@ -154,12 +191,13 @@ describe('HTTP routes, caching, and security', () => {
     expect(html).toContain('<h1>Page not found</h1>');
     expect(html).toContain('<header class="site-header">');
     expect(html).toContain('<footer class="site-footer">');
-    expect(html).toContain('name="robots" content="noindex"');
-    expect(anchors(html).filter((href) => href !== '#main').every((href) => ['/', '/uuid'].includes(href))).toBe(true);
+    expect(html).not.toMatch(/<link\b[^>]*\brel="canonical"/);
+    expect(html).toContain('<meta name="robots" content="noindex">');
+    expect(anchors(html).filter((href) => href !== '#main').every((href) => ['/', '/uuid', '/encode'].includes(href))).toBe(true);
   });
 
   it.each(['POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])('returns 405 for %s on any route', async (method) => {
-    for (const path of ['/', '/uuid', '/uuid/', '/robots.txt', '/sitemap.xml', '/api/uuid', '/missing']) {
+    for (const path of ['/', '/uuid', '/uuid/', '/encode', '/encode/', '/robots.txt', '/sitemap.xml', '/api/uuid', '/api/encode', '/missing']) {
       const response = request(path, method);
       expect(response.status).toBe(405);
       expect(response.headers.get('Allow')).toBe('GET, HEAD');
@@ -169,16 +207,16 @@ describe('HTTP routes, caching, and security', () => {
   });
 
   it('redirects the built trailing-slash route with 301 and preserves query parameters', () => {
-    for (const method of ['GET', 'HEAD']) {
-      const response = request('/uuid/?version=7', method);
+    for (const method of ['GET', 'HEAD']) for (const path of ['/uuid', '/encode']) {
+      const response = request(path + '/?version=7', method);
       expect(response.status).toBe(301);
-      expect(response.headers.get('Location')).toBe('/uuid?version=7');
+      expect(response.headers.get('Location')).toBe(path + '?version=7');
       expect(response.headers.get('Cache-Control')).toBe('public, max-age=3600');
       expect(response.headers.get('Content-Security-Policy')).not.toContain('nonce-');
     }
   });
 
-  it.each(['/', '/uuid', '/robots.txt', '/sitemap.xml', '/jwt', '/api/uuid', '/uuid/'])('supports HEAD without a body on %s', async (path) => {
+  it.each(['/', '/uuid', '/encode', '/robots.txt', '/sitemap.xml', '/jwt', '/api/uuid', '/api/encode', '/uuid/', '/encode/'])('supports HEAD without a body on %s', async (path) => {
     const get = request(path);
     const head = request(path, 'HEAD');
     expect(head.status).toBe(get.status);
@@ -191,6 +229,7 @@ describe('HTTP routes, caching, and security', () => {
   it.each([
     ['/', 'no-store'],
     ['/uuid', 'no-store'],
+    ['/encode', 'no-store'],
     ['/missing', 'no-store'],
     ['/robots.txt', 'public, max-age=86400'],
     ['/sitemap.xml', 'public, max-age=86400'],
@@ -217,7 +256,7 @@ describe('HTTP routes, caching, and security', () => {
   });
 
   it('uses a fresh cryptographic nonce for each HTML response', () => {
-    expect(request('/uuid').headers.get('Content-Security-Policy')).not.toBe(request('/uuid').headers.get('Content-Security-Policy'));
+    for (const path of ['/uuid', '/encode']) expect(request(path).headers.get('Content-Security-Policy')).not.toBe(request(path).headers.get('Content-Security-Policy'));
   });
 
   it('safely serializes structured data containing HTML delimiters', () => {

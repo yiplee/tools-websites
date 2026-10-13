@@ -1,4 +1,5 @@
 import { renderUuidPage } from '../tools/uuid/page';
+import { renderEncodePage } from '../tools/encode/page';
 
 export interface ToolInfo {
   slug: string;
@@ -21,9 +22,9 @@ export const toolRegistry: readonly Tool[] = [
     status: 'built', render: renderUuidPage,
   },
   {
-    slug: 'encode', path: '/encode', name: 'Encode',
-    description: 'Encode and decode text; future Base64, hex, and hash tools.',
-    status: 'planned',
+    slug: 'encode', path: '/encode', name: 'Encode & Hash',
+    description: 'Convert Base64 and hex, or hash UTF-8 text and local files privately.',
+    status: 'built', render: renderEncodePage,
   },
   {
     slug: 'jwt', path: '/jwt', name: 'JWT',
