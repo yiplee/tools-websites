@@ -108,8 +108,15 @@ dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .other-tools li { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; }
 .other-tools a { display: inline-flex; align-items: center; min-height: 44px; }
 .other-tools span { overflow-wrap: anywhere; }
+.encode-tool [hidden] { display: none; }
+.encode-tool label { margin-bottom: .3rem; }
+.encode-results { display: grid; align-content: start; gap: .8rem; }
+.encode-results .results-heading, .encode-results .toolbar { margin: 0; }
+.encode-results textarea { min-height: 220px; white-space: pre-wrap; word-break: break-all; }
+input[type="file"] { min-width: 0; overflow: hidden; }
 @media (min-width: 900px) {
   .tool-grid { grid-template-columns: minmax(270px, .8fr) minmax(0, 1.6fr); }
+  .encode-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .results { border-top: 0; border-left: 1px solid var(--border); }
   .controls, .results { padding: 1.5rem; }
   .section-grid { grid-template-columns: 1fr 1fr; align-items: start; gap: 2.5rem; }
@@ -122,6 +129,7 @@ dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
   .tool-nav a { padding-inline: .45rem; }
   main { padding-top: 1.5rem; }
   .controls, .results, .validator { padding: 1rem; }
+  .encode-tool .field-grid { grid-template-columns: minmax(0, 1fr); gap: .6rem; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
 `;

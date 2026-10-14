@@ -39,7 +39,7 @@ export function seoHead(options: SeoOptions): string {
 <title>${title}</title>
 <meta name="description" content="${description}">
 ${options.noIndex ? '<meta name="robots" content="noindex">' : ''}
-<link rel="canonical" href="${canonical}">
+${options.noIndex ? '' : `<link rel="canonical" href="${canonical}">`}
 <meta property="og:type" content="website">
 <meta property="og:title" content="${title}">
 <meta property="og:description" content="${description}">
