@@ -160,6 +160,16 @@ describe('HTML routes and SEO', () => {
     expect(await custom.text()).toContain('<link rel="canonical" href="https://custom.example/keygen">');
   });
 
+  it('serves a single-column Key Generator field grid for narrow screens', async () => {
+    const html = await request('/keygen').text();
+    const css = html.match(/<style\b[^>]*>([\s\S]*?)<\/style>/)![1];
+    const mobileCss = css.match(/@media\s*\(max-width:\s*420px\)\s*\{([\s\S]*?)\n\}/)![1];
+    const fieldGrid = mobileCss.match(/\.keygen-tool\s+\.field-grid\s*\{([^}]*)\}/);
+    expect(fieldGrid).not.toBeNull();
+    expect(fieldGrid![1]).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)\s*;/);
+    expect(fieldGrid![1]).toMatch(/gap:\s*\.6rem\s*;/);
+  });
+
   it('uses configured BASE_URL rather than the request host', async () => {
     const response = worker.fetch(new Request('https://preview.example/uuid'), { BASE_URL: 'https://custom.example/' });
     expect(await response.text()).toContain('<link rel="canonical" href="https://custom.example/uuid">');

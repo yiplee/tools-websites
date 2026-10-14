@@ -148,6 +148,7 @@ input[type="file"] { min-width: 0; overflow: hidden; }
   main { padding-top: 1.5rem; }
   .controls, .results, .validator { padding: 1rem; }
   .encode-tool .field-grid { grid-template-columns: minmax(0, 1fr); gap: .6rem; }
+  .keygen-tool .field-grid { grid-template-columns: minmax(0, 1fr); gap: .6rem; }
   .jwt-tool .controls { gap: .5rem; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
