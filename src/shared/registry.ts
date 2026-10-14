@@ -1,5 +1,6 @@
 import { renderUuidPage } from '../tools/uuid/page';
 import { renderEncodePage } from '../tools/encode/page';
+import { renderJwtPage } from '../tools/jwt/page';
 
 export interface ToolInfo {
   slug: string;
@@ -28,7 +29,8 @@ export const toolRegistry: readonly Tool[] = [
   },
   {
     slug: 'jwt', path: '/jwt', name: 'JWT',
-    description: 'Inspect JSON Web Token headers and payloads.', status: 'planned',
+    description: 'Decode JWT claims and verify signatures locally with Web Crypto.',
+    status: 'built', render: renderJwtPage,
   },
   {
     slug: 'keygen', path: '/keygen', name: 'Key Generator',

@@ -4,7 +4,7 @@ import { escapeHtml, siteUrl } from './shared/seo';
 import { itemListJsonLd, webSiteJsonLd } from './shared/json-ld';
 
 export const homeTitle = 'Developer Tools — Free Browser Utilities';
-export const homeDescription = 'Small, free tools for everyday development. Generate UUIDs, convert Base64 and hex, and hash text or files locally in your browser, with no uploads or accounts.';
+export const homeDescription = 'Small, free tools for everyday development. Generate UUIDs, convert Base64 and hex, hash text or files, and decode and verify JWTs locally in your browser, with no uploads or accounts.';
 
 export function renderHome(baseUrl: string, nonce: string): string {
   const tools = builtTools();
