@@ -1,8 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { createEncodeTools, type EncodeTools, type HashAlgorithm } from '../src/tools/encode/encode';
+import { longBase64, longHex } from './fixtures/encode-long';
 
 const tools = createEncodeTools();
 const utf8 = tools.encodeUtf8;
+
+describe('fixed long encoding output', () => {
+  it.each([
+    ['base64-encode', longBase64],
+    ['hex-encode', longHex],
+  ] as const)('matches every output character across chunks without line wrapping for %s', async (operation, expected) => {
+    const bytes = new Uint8Array(8195).map((_, i) => (i * 37 + (i >>> 8) * 17 + 11) % 256);
+    expect(operation === 'base64-encode' ? tools.encodeBase64(bytes) : tools.encodeHex(bytes)).toBe(expected);
+    const result = await tools.run(bytes, operation);
+    expect(result.text).toBe(expected);
+    expect(result.bytes).toEqual(utf8(expected));
+  });
+});
 
 describe('Base64 (RFC 4648)', () => {
   it.each([
@@ -140,6 +154,29 @@ describe('SHA (FIPS 180)', () => {
 });
 
 describe('browser operation pipeline', () => {
+  it.each([
+    ['base64-decode', '77u/Zm9v'],
+    ['hex-decode', 'efbbbf666f6f'],
+  ] as const)('removes exactly one leading input BOM and preserves decoded BOM bytes for %s', async (operation, encoded) => {
+    expect(await tools.run(utf8('\ufeff' + encoded), operation)).toEqual({ text: '\ufefffoo', bytes: utf8('\ufefffoo'), filename: 'decoded.bin' });
+    expect(await tools.run(utf8('\ufeff'), operation)).toEqual({ text: '', bytes: new Uint8Array(), filename: 'decoded.bin' });
+    for (const invalid of ['\ufeff\ufeff' + encoded, ' \ufeff' + encoded, encoded + '\ufeff']) {
+      await expect(tools.run(utf8(invalid), operation)).rejects.toThrow(/alphabet|hex/);
+    }
+  });
+
+  // Fixed BOM fixtures computed offline with Buffer and node:crypto.
+  it.each([
+    ['base64-encode', '77u/Zm9v'],
+    ['hex-encode', 'efbbbf666f6f'],
+    ['MD5', '32c27a619c8e5abf3f24a3e33e099c12'],
+    ['SHA-1', '154c1271e3bc3a50d04dd7cf1d70f4c97168d25e'],
+    ['SHA-256', '857d0a404e89f3dae3bd73082006517d58620f93f78430b8b7ff44f05ec59f79'],
+    ['SHA-512', '5ebfc5baec3920fb17bb66abb67c524dfd263917bb5f7dc1db6a0be5f9c5d05c55eb1202c387dd619e750a9d5e0ae9176326767a0a63a581885cbb959e8e9519'],
+  ] as const)('preserves original BOM bytes when running %s', async (operation, expected) => {
+    expect((await tools.run(utf8('\ufefffoo'), operation)).text).toBe(expected);
+  });
+
   it('returns downloadable binary bytes when decoded data is not UTF-8', async () => {
     for (const [text, operation] of [['/wA=', 'base64-decode'], ['ff00', 'hex-decode']] as const) {
       expect(await tools.run(utf8(text), operation)).toEqual({ text: null, bytes: new Uint8Array([255, 0]), filename: 'decoded.bin' });

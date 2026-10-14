@@ -52,6 +52,34 @@ function setup(serialized = false) {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('Encode browser interactions', () => {
+  it.each([
+    ['text', 'base64-decode', 'standard', '5L2g5aW98J+MjQ=='],
+    ['file', 'base64-decode', 'standard', '5L2g5aW98J+MjQ=='],
+    ['text', 'base64-decode', 'url-safe', '5L2g5aW98J-MjQ'],
+    ['file', 'base64-decode', 'url-safe', '5L2g5aW98J-MjQ'],
+    ['text', 'hex-decode', 'standard', 'e4bda0e5a5bdf09f8c8d'],
+    ['file', 'hex-decode', 'standard', 'e4bda0e5a5bdf09f8c8d'],
+  ])('decodes BOM-prefixed %s input with %s (%s)', async (source, operation, alphabet, encoded) => {
+    const { controls: c, clipboard, createUrl } = setup(true);
+    c.operation.value = operation;
+    c['input-source'].value = source;
+    c['base64-alphabet'].value = alphabet;
+    await c.operation.emit('change');
+    const input = '\ufeff' + encoded;
+    if (source === 'text') c['encode-input'].value = input;
+    else c['encode-file'].files = [new File([input], 'encoded.txt')];
+    await c['encode-form'].emit('submit');
+    expect(c['encode-status'].dataset.state).toBe('success');
+    expect(c['encode-output'].value).toBe('你好🌍');
+    expect(c['copy-result'].disabled).toBe(false);
+    expect(c['download-result'].disabled).toBe(false);
+    await c['copy-result'].emit('click');
+    expect(clipboard).toHaveBeenCalledWith('你好🌍');
+    await c['download-result'].emit('click');
+    const blob = createUrl.mock.calls[0][0] as unknown as Blob;
+    expect(new Uint8Array(await blob.arrayBuffer())).toEqual(new Uint8Array([0xe4, 0xbd, 0xa0, 0xe5, 0xa5, 0xbd, 0xf0, 0x9f, 0x8c, 0x8d]));
+  });
+
   it('executes the inline initializer, converts, copies, and invalidates output on edits', async () => {
     const { controls: c, clipboard } = setup(true);
     expect(c.convert.disabled).toBe(false);

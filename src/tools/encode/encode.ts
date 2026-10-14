@@ -150,7 +150,8 @@ export function createEncodeTools(cryptoProvider: Pick<Crypto, 'subtle'> | undef
   async function run(bytes: Uint8Array, operation: EncodeOperation, urlSafe = false): Promise<EncodeResult> {
     let text: string;
     if (operation === 'base64-decode' || operation === 'hex-decode') {
-      const input = decodeUtf8(bytes);
+      // A single leading BOM is metadata on encoded text, not part of its alphabet.
+      const input = decodeUtf8(bytes).replace(/^\uFEFF/, '');
       const decoded = operation === 'base64-decode' ? decodeBase64(input, urlSafe) : decodeHex(input);
       let preview: string | null;
       try { preview = decodeUtf8(decoded); } catch { preview = null; }
