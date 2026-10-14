@@ -56,7 +56,11 @@ describe('HTML routes and SEO', () => {
     const list = jsonLd(html).find((value) => value['@type'] === 'ItemList')!;
     expect(list.itemListElement.map((item: any) => item.url)).toEqual(builtTools().map((tool) => baseUrl + tool.path));
     for (const tool of builtTools()) expect(html).toContain(`<h3><a href="${tool.path}">${escapeHtml(tool.name)}</a></h3>`);
-    expect(jsonLd(html).find((value) => value['@type'] === 'WebSite')!.url).toBe(baseUrl + '/');
+    const website = jsonLd(html).find((value) => value['@type'] === 'WebSite')!;
+    expect(website.url).toBe(baseUrl + '/');
+    expect(website.description).toBe(homeDescription);
+    expect(website.description).toContain('decode and verify JWTs');
+    expect(html).toMatch(/<meta name="description" content="[^"]*decode and verify JWTs/);
   });
 
   it('renders UUID usage, FAQ, breadcrumbs, and all client controls', async () => {
@@ -108,6 +112,7 @@ describe('HTML routes and SEO', () => {
     expect(html).toContain('Inspect a token without sending it anywhere');
     expect(html).toContain('Tokens and keys stay in your browser');
     expect(html).toContain('Signature not verified. Decoded claims are untrusted.');
+    expect(html).toContain('<p id="jwt-time-status" class="status" role="status" aria-live="polite">');
     for (const id of ['jwt-form', 'jwt-input', 'jwt-algorithm', 'jwt-key', 'jwt-verify', 'jwt-clear', 'jwt-header', 'jwt-payload', 'jwt-times', 'jwt-copy']) expect(html).toContain(`id="${id}"`);
     const other = html.match(/<section class="other-tools"[^>]*>(.*?)<\/section>/s)![1];
     expect(anchors(other)).toEqual(['/uuid', '/encode']);

@@ -91,6 +91,34 @@ export function createJwtTools(): JwtTools {
       notYetValid: claims.some((claim) => claim.status === 'not-yet-valid'), invalid: claims.some((claim) => claim.status === 'invalid') };
   }
 
+  async function isSpkiPublicKey(text: string): Promise<boolean> {
+    const body = text.replace(/\s/g, '');
+    if (!/^[A-Za-z0-9+/_-]+={0,2}$/.test(body)) return false;
+    let bytes: Uint8Array<ArrayBuffer>;
+    try {
+      bytes = Uint8Array.from(atob(body.replace(/-/g, '+').replace(/_/g, '/')), (char) => char.charCodeAt(0));
+    } catch {
+      return false;
+    }
+    // Probe public-key formats even when PEM armor is absent. Never use decoded
+    // bytes as the HMAC secret: ordinary secrets retain their exact UTF-8 bytes.
+    const imports: (AlgorithmIdentifier | RsaHashedImportParams | EcKeyImportParams)[] = [
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+      { name: 'RSA-PSS', hash: 'SHA-256' },
+      ...['P-256', 'P-384', 'P-521'].map((namedCurve) => ({ name: 'ECDSA', namedCurve })),
+      'Ed25519', 'X25519',
+    ];
+    for (const algorithm of imports) {
+      try {
+        const publicKey = await crypto.subtle.importKey('spki', bytes, algorithm, false, []);
+        if (publicKey.type === 'public') return true;
+      } catch {
+        // A format or algorithm unavailable in this browser is not importable.
+      }
+    }
+    return false;
+  }
+
   async function verify(input: string, keyText: string, expectedAlgorithm: JwtAlgorithm): Promise<boolean> {
     const jwt = decode(input);
     const alg = jwt.header.alg;
@@ -112,8 +140,8 @@ export function createJwtTools(): JwtTools {
     let verifyAlgorithm: AlgorithmIdentifier | RsaPssParams | EcdsaParams;
     try {
       if (family === 'HS') {
-        if (keyText.trimStart().startsWith('-----BEGIN') || keyText.trimStart().startsWith('{')) {
-          throw new Error('HMAC requires a shared UTF-8 secret, not a PEM or JWK public key.');
+        if (keyText.includes('-----BEGIN') || keyText.trimStart().startsWith('{') || await isSpkiPublicKey(keyText)) {
+          throw new Error('HMAC requires a shared UTF-8 secret, not a PEM, SPKI or JWK public key.');
         }
         key = await crypto.subtle.importKey('raw', encoder.encode(keyText), { name: 'HMAC', hash }, false, ['verify']);
         verifyAlgorithm = 'HMAC';

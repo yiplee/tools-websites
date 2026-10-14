@@ -52,7 +52,7 @@ describe('unpadded base64url boundaries', () => {
   it.each([['', []], ['Zg', [102]], ['Zm8', [102, 111]], ['Zm9v', [102, 111, 111]], ['AA', [0]], ['_w', [255]], ['-_8', [251, 255]], ['____', [255, 255, 255]]])('decodes %s', (input, bytes) => {
     expect([...tools.decodeBase64Url(input as string)]).toEqual(bytes);
   });
-  it.each(['A', 'AAAAA', 'Zg=', 'Zg==', 'Zg===', 'Z=g', 'Zg\n', ' Zg', '+w', '/w', 'ＡＡ', 'Zh', 'Zm9', 'AB', '_x', '-_9'])('rejects %s', (input) => {
+  it.each(['A', 'AAAAA', 'Zg=', 'Zg==', 'Zg===', 'Z=g', 'Zg\n', ' Zg', '+w', '/w', 'ＡＡ', 'Zh', 'Zm9', 'AB', 'AI', 'AAC', '_x', '-_9'])('rejects %s', (input) => {
     expect(() => tools.decodeBase64Url(input)).toThrow(/base64url/);
   });
   it('round-trips all byte values and every residual length against an independent encoder', () => {
@@ -131,6 +131,33 @@ describe('Web Crypto signature verification against independent Node signing', (
     }
     const jwt = await hmacToken('HS256', {}, { alg: 'HS256', jku: 'https://example.com/key', jwk: { kty: 'oct', k: b64(secret) } });
     expect(await tools.verify(jwt, 'wrong trusted secret', 'HS256')).toBe(false);
+  });
+  it.each(['HS256', 'HS384', 'HS512'] as const)('rejects embedded PEM markers as %s secrets even for matching signatures', async (alg) => {
+    for (const key of ['prefix' + rsa.pem, 'ordinary secret\n-----BEGIN anything', 'prefix-----BEGINsuffix']) {
+      const forged = await hmacToken(alg, {}, { alg }, key);
+      await expect(tools.verify(forged, key, alg)).rejects.toThrow(/HMAC requires/);
+    }
+  });
+  it.each(jwtVectors.filter((vector) => !vector.alg.startsWith('HS')))('rejects bare $alg SPKI bodies as HMAC secrets', async (vector) => {
+    if (!('pem' in vector)) throw new Error('Missing public-key fixture.');
+    const body = vector.pem.replace(/-----[^\n]+-----/g, '').trim();
+    const compact = body.replace(/\s/g, '');
+    for (const alg of ['HS256', 'HS384', 'HS512'] as const) {
+      for (const key of [body, compact, compact.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')]) {
+        const forged = await hmacToken(alg, {}, { alg }, key);
+        await expect(tools.verify(forged, key, alg)).rejects.toThrow(/SPKI/);
+      }
+    }
+  });
+  it.each(['Ed25519', 'X25519'])('rejects importable %s SPKI bodies even though JWT verification does not support that algorithm', async (name) => {
+    const pair = await crypto.subtle.generateKey(name, true, name === 'Ed25519' ? ['sign', 'verify'] : ['deriveBits']) as CryptoKeyPair;
+    const key = b64(new Uint8Array(await crypto.subtle.exportKey('spki', pair.publicKey)));
+    await expect(tools.verify(await hmacToken('HS256', {}, { alg: 'HS256' }, key), key, 'HS256')).rejects.toThrow(/SPKI/);
+  });
+  it.each(['YWJjZA==', 'YWJjZA', 'YW Jj\nZA==', 'not base64!'])('preserves exact ordinary secret bytes for %s', async (key) => {
+    const jwt = await hmacToken('HS256', {}, { alg: 'HS256' }, key);
+    expect(await tools.verify(jwt, key, 'HS256')).toBe(true);
+    expect(await tools.verify(jwt, key + 'x', 'HS256')).toBe(false);
   });
   it('rejects invalid public keys and incompatible JWK metadata', async () => {
     const jwt = rsa.token;

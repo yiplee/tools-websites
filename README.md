@@ -87,7 +87,8 @@ RS256/384/512, PS256/384/512 and ES256/384/512 accept SPKI `BEGIN PUBLIC KEY` PE
 or one public JWK. RSA requires at least 2048 bits; ECDSA uses P-256, P-384 and
 P-521, with JWT's raw R||S signatures rather than DER. JWK algorithm, curve,
 key type, use and key operations must match. Private keys, certificates,
-PKCS#1 PEM and JWK sets are rejected. HMAC rejects PEM/JWK-shaped public keys.
+PKCS#1 PEM and JWK sets are rejected. HMAC rejects PEM markers anywhere in the
+secret, JWK-shaped keys and importable SPKI public keys, including Base64 bodies.
 Keys or URLs embedded in a token are never used or fetched.
 
 JWT parsing rejects malformed segments, invalid UTF-8/nonobject JSON, padding,
@@ -170,8 +171,8 @@ Run targeted mutation checks with `node test/jwt-mutations.mjs`. It first checks
 passing baseline, then applies 17 logic mutations one at a time. Each must cause
 an assertion failure; syntax/import failures or subprocess failures do not count.
 Source files are restored in `finally`. Run it with no concurrent edits to the JWT
-source files, then rerun the full tests and typecheck. The result is recorded in
-[`docs/jwt-mutation-report.json`](docs/jwt-mutation-report.json). These targeted
+source files, then rerun the full tests and typecheck. The script writes a local
+JSON report that is not committed. These targeted
 mutations validate signature, parsing, time-boundary and async-state tests;
 they are not an exhaustive mutation coverage score.
 
@@ -186,12 +187,10 @@ Desktop uses two columns and mobile uses one; checks include horizontal overflow
 verification of all 12 algorithms (including PEM and public JWK), wrong-key and
 malformed/unsigned states, literal HTML-like
 claim text, clear/focus, clipboard copy, dark mode and reduced motion. No runtime
-exceptions or browser computation requests were observed. Viewport measurements
-and interaction results are in [docs/jwt-browser-report.json](docs/jwt-browser-report.json).
+exceptions or browser computation requests were observed.
 Issue #4 screenshots:
 [1280px desktop](docs/screenshots/jwt-1280.png) and
-[375px mobile](docs/screenshots/jwt-375.png). A later PR should include these
-screenshots and `Fixes #4`; this implementation does not create a PR or deploy.
+[375px mobile](docs/screenshots/jwt-375.png).
 
 For earlier Encode work, screenshots and visual checks still need to be captured
 manually at 1280px and 375px: inspect long output, file input, binary downloads,

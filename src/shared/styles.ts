@@ -133,7 +133,7 @@ input[type="file"] { min-width: 0; overflow: hidden; }
   .header-inner { gap: .25rem; min-height: 64px; }
   .brand { font-size: .9rem; }
   .tool-nav { gap: 0; }
-  .tool-nav a { padding-inline: .35rem; font-size: .875rem; }
+  .tool-nav a { padding-inline: .45rem; }
   main { padding-top: 1.5rem; }
   .controls, .results, .validator { padding: 1rem; }
   .encode-tool .field-grid { grid-template-columns: minmax(0, 1fr); gap: .6rem; }

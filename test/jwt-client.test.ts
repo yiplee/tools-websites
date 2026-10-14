@@ -6,7 +6,9 @@ const knownJwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwI
 /** Minimal DOM for async state tests; rendered layout is verified separately. */
 class Control {
   value = '';
-  textContent = '';
+  private text = '';
+  get textContent() { return this.text; }
+  set textContent(value: string) { this.text = value; }
   placeholder = '';
   disabled = true;
   dataset: Record<string, string> = {};
@@ -140,5 +142,38 @@ describe('JWT browser interactions', () => {
     expect(c['jwt-time-status'].textContent).toBe('Expired');
     expect(c['jwt-verify-status'].textContent).toContain('not verified');
     expect(c['jwt-verify-status'].dataset.state).not.toBe('success');
+  });
+  it.each([false, true])('preserves unchanged time DOM and only writes changed claims (serialized: %s)', async (serialized) => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(99000);
+    const { c, enter, tick } = setup(serialized);
+    const payload = btoa('{"exp":101,"nbf":100,"iat":102}').replace(/=+$/, '');
+    await enter(`${knownJwt.split('.')[0]}.${payload}.${knownJwt.split('.')[2]}`);
+    const nodes = [...c['jwt-times'].children];
+    const replace = vi.spyOn(c['jwt-times'], 'replaceChildren');
+    const append = vi.spyOn(c['jwt-times'], 'append');
+    const status = vi.spyOn(c['jwt-time-status'], 'textContent', 'set');
+    const writes = nodes.map((node) => vi.spyOn(node, 'textContent', 'set'));
+    now.mockReturnValue(99500); tick(); tick();
+    expect(status).not.toHaveBeenCalled();
+    for (const write of writes) expect(write).not.toHaveBeenCalled();
+    now.mockReturnValue(100000); tick(); tick();
+    expect(status).toHaveBeenCalledTimes(1);
+    expect(writes[5]).toHaveBeenCalledTimes(1); // nbf becomes active.
+    now.mockReturnValue(101000); tick(); tick();
+    expect(status).toHaveBeenCalledTimes(2);
+    expect(writes[1]).toHaveBeenCalledTimes(1); // exp becomes expired.
+    now.mockReturnValue(102000); tick(); tick();
+    expect(status).toHaveBeenCalledTimes(2); // iat does not affect the summary.
+    expect(writes[3]).toHaveBeenCalledTimes(1); // iat becomes issued.
+    for (const index of [0, 2, 4]) expect(writes[index]).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
+    expect(append).not.toHaveBeenCalled();
+    nodes.forEach((node, index) => expect(c['jwt-times'].children[index]).toBe(node));
+    await c['jwt-clear'].emit('click');
+    expect(replace).toHaveBeenCalledTimes(1);
+    expect(c['jwt-time-status'].textContent).toBe('No time claims yet');
+    expect(c['jwt-time-status'].dataset.state).toBe('');
+    tick();
+    expect(replace).toHaveBeenCalledTimes(1);
   });
 });

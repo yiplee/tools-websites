@@ -23,13 +23,13 @@ export function initializeJwtPage(tools: JwtTools): void {
   let pending = false;
 
   function message(element: HTMLElement, text: string, state = ''): void {
-    element.textContent = text;
-    element.dataset.state = state;
+    if (element.textContent !== text) element.textContent = text;
+    if (element.dataset.state !== state) element.dataset.state = state;
   }
 
   function showTimes(): void {
-    times.replaceChildren();
     if (!decoded) {
+      if (times.children.length) times.replaceChildren();
       message(timeStatus, 'No time claims yet');
       return;
     }
@@ -38,14 +38,19 @@ export function initializeJwtPage(tools: JwtTools): void {
       : [result.expired ? 'Expired' : '', result.notYetValid ? 'Not yet valid' : ''].filter(Boolean).join(' · ')
       || 'Within the stated exp/nbf window. Missing claims impose no time limit.',
     result.invalid || result.expired || result.notYetValid ? 'error' : '');
-    result.claims.forEach((claim) => {
-      const term = document.createElement('dt');
-      const detail = document.createElement('dd');
-      term.textContent = claim.name;
-      detail.textContent = claim.status === 'missing' ? 'Not present'
+    if (!times.children.length) {
+      result.claims.forEach((claim) => {
+        const term = document.createElement('dt');
+        term.textContent = claim.name;
+        times.append(term, document.createElement('dd'));
+      });
+    }
+    result.claims.forEach((claim, index) => {
+      const detail = times.children[index * 2 + 1];
+      const text = claim.status === 'missing' ? 'Not present'
         : claim.status === 'invalid' ? 'Invalid NumericDate'
         : `${claim.time} · ${claim.status.replace(/-/g, ' ')} (${claim.value} seconds)`;
-      times.append(term, detail);
+      if (detail.textContent !== text) detail.textContent = text;
     });
   }
 

@@ -30,7 +30,7 @@ export function renderJwtPage(baseUrl: string, nonce: string): string {
 </form>
 <div class="results jwt-results">
 <h2>Signature &amp; time claims</h2><p id="jwt-verify-status" class="status" role="status" aria-live="polite">Signature not verified. Decoded claims are untrusted.</p>
-<p id="jwt-time-status" class="status">No time claims yet</p><dl id="jwt-times" class="jwt-times"></dl>
+<p id="jwt-time-status" class="status" role="status" aria-live="polite">No time claims yet</p><dl id="jwt-times" class="jwt-times"></dl>
 <h2 id="jwt-header-heading">Header</h2><pre id="jwt-header" class="mono" aria-labelledby="jwt-header-heading">No header yet</pre>
 <h2 id="jwt-payload-heading">Payload</h2><pre id="jwt-payload" class="mono" aria-labelledby="jwt-payload-heading">No payload yet</pre>
 <div class="toolbar"><button id="jwt-copy" type="button" disabled>Copy decoded JSON</button></div><p id="jwt-copy-status" class="status" role="status" aria-live="polite"></p>
