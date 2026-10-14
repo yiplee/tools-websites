@@ -120,10 +120,21 @@ input[type="file"] { min-width: 0; overflow: hidden; }
 .jwt-results h2 { font-size: 1.1rem; margin: 0; }
 .jwt-results pre { margin: 0; padding: .8rem; background: var(--inset); border-radius: 6px; white-space: pre-wrap; word-break: break-all; max-height: 320px; overflow: auto; }
 .jwt-times { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .35rem .8rem; margin: 0; font-size: .875rem; }
+.keygen-tool [hidden] { display: none; }
+.keygen-notice { margin-bottom: 0; }
+.keygen-tool label { margin-bottom: .3rem; }
+.keygen-tool .toolbar { margin: 0; }
+.keygen-output { display: grid; align-content: start; gap: .8rem; }
+.keygen-output label { margin: 0; }
+.keygen-output textarea { min-height: 220px; white-space: pre-wrap; word-break: break-all; }
+.keygen-fingerprint { padding: 1rem 1.25rem; border-block: 1px solid var(--border); background: var(--inset); }
+.keygen-fingerprint h2 { font-size: 1rem; margin-bottom: .5rem; }
+.keygen-fingerprint p { margin: 0; }
 @media (min-width: 900px) {
   .tool-grid { grid-template-columns: minmax(270px, .8fr) minmax(0, 1.6fr); }
   .encode-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .jwt-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .keygen-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .results { border-top: 0; border-left: 1px solid var(--border); }
   .controls, .results { padding: 1.5rem; }
   .section-grid { grid-template-columns: 1fr 1fr; align-items: start; gap: 2.5rem; }

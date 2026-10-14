@@ -32,6 +32,10 @@ src/
       page.ts           Server-rendered JWT workspace, usage and FAQ
       client.ts         Local decode/verify, time checks, async state and copy
       jwt.ts            Strict base64url/JSON parsing and Web Crypto verification
+    keygen/
+      page.ts           Server-rendered key pair workspace, usage and FAQ
+      client.ts         Local generation, format selection, copy, download, clear
+      keygen.ts         Web Crypto key pairs, PEM/JWK/SSH exports and fingerprints
 test/                   Vitest computation, client-state and HTTP/SEO tests
 ```
 
@@ -107,13 +111,49 @@ The format and algorithm mappings follow [RFC 7515](https://www.rfc-editor.org/r
 [RFC 7518](https://www.rfc-editor.org/rfc/rfc7518) and
 [RFC 7519](https://www.rfc-editor.org/rfc/rfc7519).
 
+`/keygen` generates Ed25519 and X25519 pairs, ECDSA P-256/P-384/P-521,
+and RSA 2048/3072/4096 with RSA-PSS, RSASSA-PKCS1-v1_5 or RSA-OAEP.
+RSA uses SHA-256 and exponent 65537. Generation uses browser Web Crypto only:
+unsupported algorithms produce an error, with no library or server fallback.
+Optional secp256k1 is not included. This follows the existing single-Worker site
+architecture rather than adding a separate Worker for this tool.
+
+PEM exports SPKI public keys and unencrypted PKCS#8 private keys. JWK exports
+separate public and private objects with their Web Crypto key operations.
+OpenSSH exports `ssh-ed25519`, `ssh-rsa` and `ecdsa-sha2-nistp256/nistp384/nistp521`
+public keys; the paired private export remains PKCS#8 PEM, not an OpenSSH
+private-key file. Ed25519 additionally exports raw hex and standard padded
+Base64: 32 public bytes and a 32-byte private seed, not a 64-byte expanded key.
+SSH serialization follows [RFC 4251](https://www.rfc-editor.org/rfc/rfc4251),
+[RFC 4253](https://www.rfc-editor.org/rfc/rfc4253),
+[RFC 5656](https://www.rfc-editor.org/rfc/rfc5656) and
+[RFC 8709](https://www.rfc-editor.org/rfc/rfc8709).
+
+Public fingerprints use SHA-256 of the SSH wire blob, displayed as
+`SHA256:<unpadded Base64>`. X25519 has no SSH authentication-key export; its
+fingerprint is explicitly labeled as SHA-256 of SPKI DER. Changing export format
+preserves the pair and fingerprint. Changing algorithm, curve, size or RSA
+purpose clears both keys and invalidates pending generation. Generation replaces
+the old result; stale successes, failures and clipboard feedback cannot overwrite
+newer work. Clear, reload and page departure remove page-held results. JavaScript
+does not guarantee secure memory erasure.
+
+Keys are never uploaded, logged or placed in browser storage. Copies and separate
+public/private downloads occur only on user action; clipboard contents and files
+then remain on the device. There are no generation API routes and CSP keeps
+`connect-src 'none'`. The page warns prominently that private exports are
+unencrypted and recommends generating production keys on your own machine with
+`openssl` or `ssh-keygen`. The factory and initializer use the same serialized,
+nonce-protected browser-script pattern as JWT.
+
 `keep_names = false` in Wrangler prevents injected name-preservation helpers from
 becoming external dependencies of the serialized browser functions.
 
 The registry drives routes, home listings, navigation, Other tools, and the
-sitemap. UUID (`/uuid`), Encode & Hash (`/encode`) and JWT (`/jwt`) are built.
+sitemap. UUID (`/uuid`), Encode & Hash (`/encode`), JWT (`/jwt`) and Key Generator
+(`/keygen`) are built.
 Base64, hex and hash operations share `/encode`; `/base64`, `/hex`, `/hash`, and nested Encode
-paths are not separate routes. Key Generator (`/keygen`) is planned. Planned
+paths are not separate routes. Planned
 tools have no public links or sitemap entries and return the shared 404 page.
 
 Internal anchors use relative paths. Canonical, Open Graph, Twitter, JSON-LD,
@@ -167,6 +207,22 @@ clipboard denial, literal hostile-text display and stale async result handling.
 The fixture generator uses only Node built-ins; regenerate with
 `node test/fixtures/generate-jwt.mjs` (disposable test keys only).
 
+Key Generator tests cover all 14 algorithm/curve/RSA size-and-purpose combinations.
+They import PEM and JWK into Web Crypto, sign/verify in both directions with
+Node/OpenSSL, encrypt/decrypt RSA-OAEP and compare X25519 shared secrets.
+OpenSSL CLI checks generated private/public PEM through memory-only stdin;
+an independent SSH wire parser reconstructs public JWKs for Node/OpenSSL import
+and independently checks SHA-256 fingerprints. Raw Ed25519 exports match the
+JWK public bytes and private seed. Tests also cover unsupported Web Crypto,
+invalid options, distinct fresh keys, serialized scripts, format restrictions,
+separate copies/downloads, clipboard/download errors, URL cleanup, clear/page
+departure and stale async results. HTTP tests cover SEO, visible FAQ/JSON-LD,
+home/navigation/sitemap integration, redirects and security headers for `/keygen`.
+The Node/OpenSSL interoperability tests use `.test.mjs` to keep Node-specific
+types out of the browser/Worker TypeScript configuration. They require the
+`openssl` executable; all test keys are disposable and no private fixtures are
+written to disk.
+
 Run targeted mutation checks with `node test/jwt-mutations.mjs`. It first checks a
 passing baseline, then applies 17 logic mutations one at a time. Each must cause
 an assertion failure; syntax/import failures or subprocess failures do not count.
@@ -191,6 +247,21 @@ exceptions or browser computation requests were observed.
 Issue #4 screenshots:
 [1280px desktop](docs/screenshots/jwt-1280.png) and
 [375px mobile](docs/screenshots/jwt-375.png).
+
+Key Generator was checked in local headless Chrome against the actual Wrangler
+Worker at 375×844, 390×844, 768×1024, 1280×900, 1440×900, 1920×1080 and
+2560×1080. Checks cover all 14 parameter combinations and their supported export
+formats, public clipboard copy, clear/focus, unsupported-algorithm errors,
+light/dark mode, reduced motion and horizontal overflow. The Generate action
+remains within the mobile viewport even with RSA controls visible. No runtime
+exceptions or computation requests were observed. Client unit tests separately
+cover private copy, exact downloads and clipboard denial. All 13 SSH-capable
+parameter combinations were also parsed by the environment's existing Python
+cryptography OpenSSH parser and compared to their SPKI public keys, entirely
+in memory; Python is not required by the Vitest suite. Screenshots deliberately
+show cleared results so no private key is recorded:
+[1280px desktop](docs/screenshots/keygen-1280.png) and
+[375px mobile](docs/screenshots/keygen-375.png).
 
 For earlier Encode work, screenshots and visual checks still need to be captured
 manually at 1280px and 375px: inspect long output, file input, binary downloads,

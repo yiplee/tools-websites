@@ -1,6 +1,7 @@
 import { renderUuidPage } from '../tools/uuid/page';
 import { renderEncodePage } from '../tools/encode/page';
 import { renderJwtPage } from '../tools/jwt/page';
+import { renderKeygenPage } from '../tools/keygen/page';
 
 export interface ToolInfo {
   slug: string;
@@ -34,7 +35,8 @@ export const toolRegistry: readonly Tool[] = [
   },
   {
     slug: 'keygen', path: '/keygen', name: 'Key Generator',
-    description: 'Generate keys locally in your browser.', status: 'planned',
+    description: 'Generate Ed25519, X25519, ECDSA and RSA key pairs locally.',
+    status: 'built', render: renderKeygenPage,
   },
 ];
 
